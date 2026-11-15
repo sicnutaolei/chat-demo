@@ -16,7 +16,7 @@
  */
 import { createServer } from 'node:http'
 import { createReadStream } from 'node:fs'
-import { mkdir, readFile, readdir, stat, unlink, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, stat, unlink, writeFile } from 'node:fs/promises'
 import { Readable } from 'node:stream'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -79,6 +79,7 @@ const MIME = {
   '.LICENSE': 'text/plain; charset=utf-8',
 }
 
+// eslint-disable-next-line no-console -- 服务端日志是唯一输出通道
 const log = (...args) => console.log('[chat-demo]', ...args)
 
 // ---------------------------------------------------------------- 文件仓库

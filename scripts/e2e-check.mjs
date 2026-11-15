@@ -110,15 +110,18 @@ await call('Input.dispatchKeyEvent', {
 })
 await call('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 })
 
-// 等流式回答结束：连续两次取到的正文长度不再变化
+// 等流式回答结束：至少轮询 9s，且连续 3 次正文完全一致才认为稳定。
+// 只看「1 次没变化」会在慢上游（首字延迟数秒）时提前退出，导致假阴性。
 let previous = ''
-for (let i = 0; i < 60; i++) {
+let stable = 0
+for (let i = 0; i < 80; i++) {
   await sleep(1500)
   const text = await evaluate('document.body.innerText')
-  if (text.length > 0 && text === previous) {
+  stable = text === previous ? stable + 1 : 0
+  previous = text
+  if (i >= 5 && stable >= 2) {
     break
   }
-  previous = text
 }
 
 const bodyText = await evaluate('document.body.innerText')

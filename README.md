@@ -4,7 +4,19 @@ English | [简体中文](README.zh-CN.md)
 
 A static chat demo powered by the DeepSeek API. No application backend is required: the browser connects directly to the configured API service.
 
-You can [try the app online](https://deepseek-ai.github.io/chat-demo/) or download the archive from [Releases](https://github.com/deepseek-ai/deepseek-chat-demo/releases), extract it, and double-click `index.html` to use it locally without installation or a build. Enter your API key in Settings before your first chat.
+> **This fork** points the default API at a local gateway (`http://192.168.195.154:3425`) and ships a zero-dependency Node adapter (`server.mjs`) that serves `dist/`, proxies `/api/*`, adds CORS headers, emulates the Files API (images are inlined as base64), and falls back from the LAN address to loopback when the gateway rejects the key. See [README.zh-CN.md](README.zh-CN.md) for the full endpoint mapping table.
+
+Quick start for this fork:
+
+```sh
+npm install
+npm run build
+npm run serve   # or double-click start.cmd
+```
+
+Open http://127.0.0.1:8090. Settings live in `config.json` (`port`, `targets`, `apiKey`, `model`).
+
+You can [try the upstream app online](https://deepseek-ai.github.io/chat-demo/) or download the archive from [Releases](https://github.com/deepseek-ai/deepseek-chat-demo/releases), extract it, and double-click `index.html` to use it locally without installation or a build. Enter your API key in Settings before your first chat.
 
 ## Getting started
 
@@ -49,11 +61,12 @@ Settings → Data → Delete all chats clears all local conversations, original 
 | ------------- | ---------------------------- |
 | `pnpm dev`    | Start the development server |
 | `pnpm build`  | Build into `dist/`           |
+| `pnpm serve`  | Run the local gateway server |
 | `pnpm type`   | Run TypeScript type checks   |
 | `pnpm lint`   | Lint with oxlint             |
 | `pnpm format` | Format with oxfmt            |
 
-[rspack.config.ts](rspack.config.ts) uses `https://api.deepseek.com` by default. Use `createConfig({ apiOrigin, devServer })` to customize the API origin and development server proxy.
+[rspack.config.ts](rspack.config.ts) injects `__API_ORIGIN__` as `/api` (same-origin proxy) by default. Use `createConfig({ apiOrigin, devServer })` to customize the API origin and development server proxy; `pnpm dev` forwards `/api` to `API_PROXY` (default `http://127.0.0.1:3425`).
 
 Chat uses `deepseek-flash` by default through Anthropic-compatible Messages / Files APIs. Speech features use ASR / TTS endpoints. Requests include extensions for search, link reading, titles, and `latest_reminder`, so the configured service must support the corresponding capabilities. Supported attachment formats are determined by server-side validation.
 
@@ -68,6 +81,8 @@ src/
     markdown/          Markdown parsing, syntax highlighting, and diagrams
     speech/            Audio recording and read-aloud playback
   utils/               Shared utilities
+server.mjs             Local gateway adapter (static hosting + /api proxy + Files shim)
+scripts/e2e-check.mjs  Headless Chrome end-to-end smoke test
 ```
 
 ## License

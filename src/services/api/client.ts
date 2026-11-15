@@ -9,10 +9,13 @@ import type {
   MessageStreamEvent,
 } from './types.js'
 
-/** 构建期 API 地址，默认 https://api.deepseek.com；本地开发支持开发服务器代理 */
+/**
+ * 构建期 API 地址，默认 `/api`：由同目录的 server.mjs 反向代理到本地网关
+ * （静态托管 + 跨域头 + Files API 兼容层）。改成完整地址可直连支持跨域的服务。
+ */
 export const API_ORIGIN = __API_ORIGIN__
-/** Anthropic 兼容接口的前缀 */
-const ANTHROPIC_BASE_URL = `${API_ORIGIN}/anthropic/v1`
+/** Anthropic 兼容接口的前缀（本地网关提供 /v1/messages） */
+const ANTHROPIC_BASE_URL = `${API_ORIGIN}/v1`
 /** 引用 Files API 上传的图片、调用 Anthropic 兼容 Files API 时必须携带 */
 const FILES_BETA = 'files-api-2025-04-14'
 
@@ -91,7 +94,7 @@ const anthropicHeaders = (apiKey: string, beta: boolean): Record<string, string>
 
 /** 用 GET /models 校验 API Key（不产生费用） */
 export const verifyApiKey = async (apiKey: string, signal?: AbortSignal): Promise<void> => {
-  await request(`${API_ORIGIN}/models`, {
+  await request(`${API_ORIGIN}/v1/models`, {
     method: 'GET',
     headers: { Authorization: `Bearer ${apiKey}` },
     signal,

@@ -4,7 +4,8 @@ import { fileURLToPath } from 'node:url'
 import { defineConfig } from '@rspack/cli'
 import { rspack, type Configuration } from '@rspack/core'
 
-const dev = process.env.NODE_ENV !== 'production'
+/** 只有 `rspack serve` 走开发模式；`rspack build` 直接产出生产包（Windows 下无需设 NODE_ENV） */
+const dev = process.argv.includes('serve')
 const targets = ['chrome >= 105', 'edge >= 105', 'safari >= 16', 'firefox >= 110']
 const root = path.dirname(fileURLToPath(import.meta.url))
 const { version } = JSON.parse(
@@ -17,7 +18,7 @@ const cssLoader = {
 }
 
 type ConfigOptions = {
-  /** 公开 API 的地址，注入为 __API_ORIGIN__ */
+  /** 公开 API 的地址，注入为 __API_ORIGIN__；默认 `/api` 走 server.mjs 反向代理 */
   apiOrigin?: string
   /** 开发服务器配置，支持本地接口代理 */
   devServer?: Configuration['devServer']
@@ -25,7 +26,8 @@ type ConfigOptions = {
 
 /** 创建构建配置，支持自定义 API 地址和开发服务器选项 */
 export const createConfig = ({
-  apiOrigin = 'https://api.deepseek.com',
+  // 默认同源 `/api`，由 server.mjs 代理到本地网关
+  apiOrigin = '/api',
   devServer,
 }: ConfigOptions = {}): Configuration => ({
   mode: dev ? 'development' : 'production',
@@ -86,7 +88,19 @@ export const createConfig = ({
     }),
   ],
   performance: { hints: false },
-  devServer: { port: 8090, ...devServer },
+  devServer: {
+    port: 8090,
+    // 开发模式把 /api 直接转发到网关；附件与语音的兼容层需要运行 `node server.mjs`
+    proxy: [
+      {
+        context: ['/api'],
+        target: process.env.API_PROXY ?? 'http://127.0.0.1:3425',
+        changeOrigin: true,
+        pathRewrite: { '^/api': '' },
+      },
+    ],
+    ...devServer,
+  },
 })
 
 // eslint-disable-next-line import/no-default-export

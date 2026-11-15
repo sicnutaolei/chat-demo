@@ -3,6 +3,9 @@ dist/
 build/
 .pnpm-store/
 .cache/
+.gateway-files/
+.e2e/
+config.json
 *.log
 .DS_Store
 .env

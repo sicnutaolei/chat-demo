@@ -41,11 +41,17 @@ const loadConfig = async () => {
   } catch {
     // 没有 config.json 时使用默认值
   }
-  const envTargets = process.env.API_TARGETS?.split(',').map((s) => s.trim()).filter(Boolean)
+  const envTargets = process.env.API_TARGETS?.split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
   return {
     ...DEFAULTS,
     ...file,
-    targets: envTargets?.length ? envTargets : file.targets?.length ? file.targets : DEFAULTS.targets,
+    targets: envTargets?.length
+      ? envTargets
+      : file.targets?.length
+        ? file.targets
+        : DEFAULTS.targets,
     port: Number(process.env.PORT ?? file.port ?? DEFAULTS.port),
   }
 }
@@ -148,7 +154,8 @@ const readBody = async (req) => {
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
   'access-control-allow-methods': 'GET,POST,DELETE,OPTIONS',
-  'access-control-allow-headers': 'authorization,content-type,x-api-key,anthropic-beta,anthropic-version',
+  'access-control-allow-headers':
+    'authorization,content-type,x-api-key,anthropic-beta,anthropic-version',
   'access-control-max-age': '86400',
 }
 
@@ -180,7 +187,12 @@ const fetchUpstream = async (pathname, { method = 'GET', headers = {}, body } = 
   for (const target of order) {
     const url = `${target.replace(/\/$/, '')}${pathname}`
     try {
-      const response = await fetch(url, { method, headers, body, duplex: body ? 'half' : undefined })
+      const response = await fetch(url, {
+        method,
+        headers,
+        body,
+        duplex: body ? 'half' : undefined,
+      })
       if (response.status === 401) {
         const text = await response.text()
         if (isGatewayKeyError(text)) {
@@ -213,7 +225,8 @@ const upstreamHeaders = (req, { json = true } = {}) => {
   if (req.headers['x-api-key']) {
     headers['x-api-key'] = req.headers['x-api-key']
   }
-  headers['content-type'] = req.headers['content-type'] ?? (json ? 'application/json' : 'application/octet-stream')
+  headers['content-type'] =
+    req.headers['content-type'] ?? (json ? 'application/json' : 'application/octet-stream')
   headers.accept = req.headers.accept ?? (json ? 'application/json' : '*/*')
   return headers
 }
@@ -309,11 +322,7 @@ const handleFiles = async (req, res) => {
   const purpose = parts.find((part) => part.name === 'purpose')?.data.toString('utf8')
   const mime = file.contentType || 'application/octet-stream'
   if (!IMAGE_TYPES.has(mime) || purpose === 'rich_layout_recognition') {
-    sendError(
-      res,
-      400,
-      `当前网关只支持图片附件（png/jpeg/gif/webp），${file.filename} 无法解析`
-    )
+    sendError(res, 400, `当前网关只支持图片附件（png/jpeg/gif/webp），${file.filename} 无法解析`)
     return
   }
   const id = `file_${randomBytes(12).toString('hex')}`
@@ -440,12 +449,7 @@ const handleApi = async (req, res, url) => {
     return
   }
   if (route === '/v1/tools/tts') {
-    sendError(
-      res,
-      501,
-      '当前网关没有语音合成模型，朗读功能不可用。',
-      'not_implemented_error'
-    )
+    sendError(res, 501, '当前网关没有语音合成模型，朗读功能不可用。', 'not_implemented_error')
     return
   }
 

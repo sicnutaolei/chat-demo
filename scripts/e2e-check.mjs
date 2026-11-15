@@ -74,7 +74,11 @@ const call = (method, params = {}) =>
   })
 
 const evaluate = async (expression) => {
-  const result = await call('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true })
+  const result = await call('Runtime.evaluate', {
+    expression,
+    returnByValue: true,
+    awaitPromise: true,
+  })
   return result.result?.result?.value
 }
 
@@ -86,8 +90,18 @@ await sleep(3500)
 // 首次打开可能弹设置弹窗，Esc 关掉
 let hasInput = await evaluate('!!document.querySelector("textarea")')
 if (!hasInput) {
-  await call('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 })
-  await call('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 })
+  await call('Input.dispatchKeyEvent', {
+    type: 'keyDown',
+    key: 'Escape',
+    code: 'Escape',
+    windowsVirtualKeyCode: 27,
+  })
+  await call('Input.dispatchKeyEvent', {
+    type: 'keyUp',
+    key: 'Escape',
+    code: 'Escape',
+    windowsVirtualKeyCode: 27,
+  })
   await sleep(800)
   hasInput = await evaluate('!!document.querySelector("textarea")')
 }
@@ -108,7 +122,12 @@ await call('Input.dispatchKeyEvent', {
   nativeVirtualKeyCode: 13,
   text: '\r',
 })
-await call('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 })
+await call('Input.dispatchKeyEvent', {
+  type: 'keyUp',
+  key: 'Enter',
+  code: 'Enter',
+  windowsVirtualKeyCode: 13,
+})
 
 // 等流式回答结束：至少轮询 9s，且连续 3 次正文完全一致才认为稳定。
 // 只看「1 次没变化」会在慢上游（首字延迟数秒）时提前退出，导致假阴性。

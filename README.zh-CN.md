@@ -47,11 +47,11 @@ pnpm build
 
 纯静态页面直接请求该网关有三个硬性障碍，因此仓库里多了 `server.mjs`（零依赖，只用 Node 内置模块）：
 
-| 障碍 | 现象 | `server.mjs` 的处理 |
-| --- | --- | --- |
-| 跨域 | 网关不返回 `Access-Control-Allow-Origin`，`OPTIONS` 预检 404 | 同源托管 `dist/` + 代理 `/api/*`，并补上 CORS 头 |
-| 网关信任策略 | 通过 LAN 地址（192.168.195.154 / 192.168.2.216）访问会 401：`key ... is not an enabled magpie gateway key`，回环地址正常 | 按 `targets` 顺序自动回退，401 时切到下一个并记住可用地址 |
-| 缺失接口 | 网关没有 `/v1/files`（附件）、没有 ASR/TTS 模型 | Files API 在本地实现（图片内联为 base64）；语音接口返回可读的 501 |
+| 障碍         | 现象                                                                                                                     | `server.mjs` 的处理                                               |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
+| 跨域         | 网关不返回 `Access-Control-Allow-Origin`，`OPTIONS` 预检 404                                                             | 同源托管 `dist/` + 代理 `/api/*`，并补上 CORS 头                  |
+| 网关信任策略 | 通过 LAN 地址（192.168.195.154 / 192.168.2.216）访问会 401：`key ... is not an enabled magpie gateway key`，回环地址正常 | 按 `targets` 顺序自动回退，401 时切到下一个并记住可用地址         |
+| 缺失接口     | 网关没有 `/v1/files`（附件）、没有 ASR/TTS 模型                                                                          | Files API 在本地实现（图片内联为 base64）；语音接口返回可读的 501 |
 
 ### 使用
 
@@ -65,13 +65,13 @@ npm run serve        # 或 node server.mjs，或双击 start.cmd
 
 ### config.json
 
-| 字段 | 说明 |
-| --- | --- |
-| `port` | 本地服务端口，默认 `8090` |
-| `targets` | 上游地址数组，按顺序尝试；遇到网关密钥类 401 自动切换并记住 |
-| `apiKey` | 首次打开自动写入浏览器设置（localStorage 已有 Key 时不覆盖），留空则手动在设置里填 |
-| `model` | 强制覆盖请求模型；留空则用界面默认的 `deepseek-flash` |
-| `filesDir` | 附件落盘目录，默认 `.gateway-files/` |
+| 字段       | 说明                                                                               |
+| ---------- | ---------------------------------------------------------------------------------- |
+| `port`     | 本地服务端口，默认 `8090`                                                          |
+| `targets`  | 上游地址数组，按顺序尝试；遇到网关密钥类 401 自动切换并记住                        |
+| `apiKey`   | 首次打开自动写入浏览器设置（localStorage 已有 Key 时不覆盖），留空则手动在设置里填 |
+| `model`    | 强制覆盖请求模型；留空则用界面默认的 `deepseek-flash`                              |
+| `filesDir` | 附件落盘目录，默认 `.gateway-files/`                                               |
 
 也可用环境变量覆盖：`PORT`、`API_TARGETS`（逗号分隔）。
 
@@ -79,32 +79,32 @@ npm run serve        # 或 node server.mjs，或双击 start.cmd
 
 ### 接口映射
 
-| 前端请求 | 转发到 | 说明 |
-| --- | --- | --- |
-| `POST /api/v1/messages` | `/v1/messages` | Anthropic 兼容流式透传；发送前把 `source.type=file` 的图片块内联成 base64 |
-| `GET /api/v1/models` | `/v1/models` | 校验 API Key |
-| `POST /api/v1/files` | 本地实现 | 仅图片（png/jpeg/gif/webp），落盘并返回 Anthropic 风格 `FileObject` |
-| `DELETE /api/v1/files/:id` | 本地实现 | 删除附件原件 |
-| `POST /api/v1/tools/asr`、`/tts` | — | 返回 501，界面提示语音不可用 |
-| `GET /api/_config` | — | 返回 `apiKey` 等运行时配置，供前端首帧预填 |
-| `GET /api/_status` | — | 查看当前上游地址、可达性、附件数量（排障用） |
+| 前端请求                         | 转发到         | 说明                                                                      |
+| -------------------------------- | -------------- | ------------------------------------------------------------------------- |
+| `POST /api/v1/messages`          | `/v1/messages` | Anthropic 兼容流式透传；发送前把 `source.type=file` 的图片块内联成 base64 |
+| `GET /api/v1/models`             | `/v1/models`   | 校验 API Key                                                              |
+| `POST /api/v1/files`             | 本地实现       | 仅图片（png/jpeg/gif/webp），落盘并返回 Anthropic 风格 `FileObject`       |
+| `DELETE /api/v1/files/:id`       | 本地实现       | 删除附件原件                                                              |
+| `POST /api/v1/tools/asr`、`/tts` | —              | 返回 501，界面提示语音不可用                                              |
+| `GET /api/_config`               | —              | 返回 `apiKey` 等运行时配置，供前端首帧预填                                |
+| `GET /api/_status`               | —              | 查看当前上游地址、可达性、附件数量（排障用）                              |
 
 ### 功能可用性
 
-| 功能 | 状态 |
-| --- | --- |
+| 功能                                                       | 状态                                        |
+| ---------------------------------------------------------- | ------------------------------------------- |
 | 流式对话、深度思考、联网搜索、链接阅读、来源引用、自动标题 | ✅ 网关透传 DeepSeek 上游，扩展字段原生支持 |
-| 图片附件（png/jpeg/gif/webp） | ✅ 由代理内联为 base64 发送 |
-| PDF / Word / PPT / 文本等文档附件 | ❌ 网关无法解析，上传时即提示 |
-| 语音输入、回复朗读 | ❌ 网关无 ASR/TTS 模型 |
-| 多会话、消息分支、历史导入导出、Markdown / KaTeX / Mermaid | ✅ 纯前端能力，与网关无关 |
+| 图片附件（png/jpeg/gif/webp）                              | ✅ 由代理内联为 base64 发送                 |
+| PDF / Word / PPT / 文本等文档附件                          | ❌ 网关无法解析，上传时即提示               |
+| 语音输入、回复朗读                                         | ❌ 网关无 ASR/TTS 模型                      |
+| 多会话、消息分支、历史导入导出、Markdown / KaTeX / Mermaid | ✅ 纯前端能力，与网关无关                   |
 
 ### 运行时配置（换后端不用重新构建）
 
 `dist/config.js` 会在应用启动前执行（改完刷新页面即生效，不需要重新构建）：
 
 ```js
-window.__CHAT_API_ORIGIN__ = ''          // 留空：用构建期默认的 /api（同源代理）
+window.__CHAT_API_ORIGIN__ = '' // 留空：用构建期默认的 /api（同源代理）
 // window.__CHAT_API_ORIGIN__ = 'http://192.168.2.216:8090/api'   // 跨域直连某台适配服务器
 ```
 
@@ -150,8 +150,8 @@ services:
     container_name: magpie
     restart: unless-stopped
     ports:
-      - "3425:3425"            # 网关：局域网客户端调用（需网关密钥）
-      - "127.0.0.1:3430:3430"  # Web 管理界面：仅回环，用 SSH 隧道打开
+      - '3425:3425' # 网关：局域网客户端调用（需网关密钥）
+      - '127.0.0.1:3430:3430' # Web 管理界面：仅回环，用 SSH 隧道打开
     environment:
       MAGPIE_PUBLIC_URL: http://<nas-ip>:3425
       MAGPIE_WEB_KEY: <16 位以上的固定 key>
@@ -208,19 +208,19 @@ location /chat-demo/api/ {
 ### 3. 页面侧的 config.js
 
 ```js
-window.__CHAT_API_ORIGIN__ = '/chat-demo/api'                 // 同源，浏览器无跨域
-window.__CHAT_MODEL__ = 'readon/DeepSeek-V4.1-Flash'          // 网关上的 provider/model id
-window.__CHAT_KEY__ = 'injected-by-nginx'                     // 占位，真实密钥在 nginx 里
+window.__CHAT_API_ORIGIN__ = '/chat-demo/api' // 同源，浏览器无跨域
+window.__CHAT_MODEL__ = 'readon/DeepSeek-V4.1-Flash' // 网关上的 provider/model id
+window.__CHAT_KEY__ = 'injected-by-nginx' // 占位，真实密钥在 nginx 里
 ```
 
 ### 这套架构下的功能边界
 
-| 功能 | 状态 |
-| --- | --- |
-| 流式对话、深度思考、联网搜索、链接阅读、来源引用 | ✅ |
-| 图片附件 | ❌ magpie 没有 Files API（`/v1/files` 返回 404），上传时会提示 |
-| 语音输入 / 朗读 | ❌ 网关无 ASR/TTS 模型 |
-| 多会话、消息分支、历史导入导出、Markdown / KaTeX / Mermaid | ✅ 纯前端 |
+| 功能                                                       | 状态                                                           |
+| ---------------------------------------------------------- | -------------------------------------------------------------- |
+| 流式对话、深度思考、联网搜索、链接阅读、来源引用           | ✅                                                             |
+| 图片附件                                                   | ❌ magpie 没有 Files API（`/v1/files` 返回 404），上传时会提示 |
+| 语音输入 / 朗读                                            | ❌ 网关无 ASR/TTS 模型                                         |
+| 多会话、消息分支、历史导入导出、Markdown / KaTeX / Mermaid | ✅ 纯前端                                                      |
 
 > 需要图片附件时，把 `__CHAT_API_ORIGIN__` 指回本机的 `server.mjs`（它自带 Files 兼容层），
 > 代价是那台机器要开着。
@@ -235,15 +235,15 @@ API Key 和设置保存在浏览器 localStorage，会话及附件原件保存�
 
 ## 开发
 
-| 命令          | 用途                |
-| ------------- | ------------------- |
-| `pnpm dev`    | 启动开发服务器      |
-| `pnpm build`  | 构建到 `dist/`      |
-| `pnpm serve`  | 启动本地网关服务器  |
+| 命令          | 用途                 |
+| ------------- | -------------------- |
+| `pnpm dev`    | 启动开发服务器       |
+| `pnpm build`  | 构建到 `dist/`       |
+| `pnpm serve`  | 启动本地网关服务器   |
 | `pnpm e2e`    | 无头浏览器端到端自检 |
-| `pnpm type`   | TypeScript 类型检查 |
-| `pnpm lint`   | oxlint 检查         |
-| `pnpm format` | oxfmt 格式化        |
+| `pnpm type`   | TypeScript 类型检查  |
+| `pnpm lint`   | oxlint 检查          |
+| `pnpm format` | oxfmt 格式化         |
 
 [rspack.config.ts](rspack.config.ts) 默认把 `__API_ORIGIN__` 注入为 `/api`（同源代理）。`createConfig({ apiOrigin, devServer })` 支持自定义 API 地址和开发服务器代理；`pnpm dev` 会把 `/api` 直接转发到 `API_PROXY`（默认 `http://127.0.0.1:3425`）。
 

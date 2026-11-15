@@ -1,11 +1,12 @@
-# chat-demo
+# 蓝色大肥鱼（chat-demo）
 
 [English](README.md) | 简体中文
 
 基于 DeepSeek API 的静态聊天示例。无需应用后端，浏览器直接请求配置的 API 服务。
 
-> **本 fork 的改动**：默认 API 从 `https://api.deepseek.com` 换成本地网关 `http://192.168.195.154:3425`，
-> 并附带零依赖的 Node 适配服务器 `server.mjs`。详见下方「本地网关版」。
+> **本 fork 的改动**：应用改名为「蓝色大肥鱼」，接口从 `https://api.deepseek.com` 换成本地 magpie 网关。
+> 正式部署跑在 NAS 上（magpie 容器 + nginx 同源代理，不依赖任何 Windows 进程），
+> 另外保留零依赖的 Node 适配服务器 `server.mjs` 供本机开发用。详见下方两节。
 
 点击 [在线体验](https://deepseek-ai.github.io/chat-demo/) 即可使用，也可以前往 [Releases](https://github.com/deepseek-ai/deepseek-chat-demo/releases) 下载压缩包，解压后双击 `index.html` 在本地使用，无需安装或构建。首次使用时，请在设置中填写 API Key。
 
@@ -106,6 +107,23 @@ npm run serve        # 或 node server.mjs，或双击 start.cmd
 window.__CHAT_API_ORIGIN__ = ''          // 留空：用构建期默认的 /api（同源代理）
 // window.__CHAT_API_ORIGIN__ = 'http://192.168.2.216:8090/api'   // 跨域直连某台适配服务器
 ```
+
+### 模型选择（设置 → 通用设置 → 模型）
+
+模型不再写死在代码里。设置里的「模型」下拉会请求网关的 `GET /v1/models` 列出全部可用模型
+（`group/*` 路由组与 `auto/*` 排在最前，其余按字母序），选中立即生效并存入 localStorage。
+
+生效优先级：
+
+1. 设置里选中的模型
+2. `config.js` 的 `window.__CHAT_MODEL__`（部署默认）
+3. 内置默认 `deepseek-flash`
+
+选「默认（跟随部署配置）」即回到第 2、3 条。网关不可达时下拉只保留「默认」一项，
+小字会提示检查网关连接，不影响其它设置项。
+
+> 网关上的模型 id 通常是 `provider/model` 形式（如 `readon/DeepSeek-V4.1-Flash`），
+> 与 DeepSeek 官方 id（`deepseek-flash`）不同，换网关后在这里选对即可，不必重新构建。
 
 ## 部署到 NAS 静态站（magpie 跑在 NAS 上）
 

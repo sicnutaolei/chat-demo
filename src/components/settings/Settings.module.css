@@ -440,3 +440,8 @@
     max-width: 100%;
   }
 }
+
+/* 模型 id 通常较长（provider/model），限宽后由 Select 内部省略 */
+.modelSelect {
+  max-width: 240px;
+}

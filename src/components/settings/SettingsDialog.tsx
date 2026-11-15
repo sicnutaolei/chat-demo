@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   IconDarkOutline16,
   IconDataOutline16,
@@ -15,6 +15,8 @@ import {
   exportHistory,
   importHistory,
 } from '../../services/chat/backup.js'
+import { listModels } from '../../services/api/client.js'
+import { DEFAULT_MODEL, DEPLOY_MODEL } from '../../services/model.js'
 import { useIsMobile } from '../../app/viewport.js'
 import { useChatStore } from '../../services/chat/store.js'
 import { regionCodes, getRegionName, provinces } from '../../services/location.js'
@@ -22,6 +24,7 @@ import {
   isChineseBrowser,
   setLocale,
   setLocation,
+  setModel,
   setThemePreference,
   setTtsVoice,
   useSettings,
@@ -96,6 +99,7 @@ const SettingsContent = () => {
         <div role="tabpanel" className={styles.content}>
           {section === 'general' ? (
             <>
+              <ModelSetting />
               <ThemeSetting />
               <LocaleSetting />
               <TtsVoiceSetting />
@@ -285,6 +289,64 @@ const LocaleSetting = () => {
             { value: 'en-US', label: t('settingsLocaleEnUS'), lang: 'en' },
           ]}
           onChange={setLocale}
+        />
+      }
+    />
+  )
+}
+
+/** 路由组（group/、auto/）排前面，其余按字母序 */
+const sortModels = (ids: string[]): string[] =>
+  [...new Set(ids)].sort((a, b) => {
+    const rank = (id: string) => (id.startsWith('group/') ? 0 : id.startsWith('auto/') ? 1 : 2)
+    return rank(a) - rank(b) || a.localeCompare(b)
+  })
+
+/**
+ * 模型：从网关 GET /v1/models 拉可用列表；选「默认」时跟随 config.js 的部署默认。
+ * 网关不可达时只保留「默认」，不影响其它设置。
+ */
+const ModelSetting = () => {
+  const t = useTranslate()
+  const apiKey = useSettings((state) => state.apiKey)
+  const model = useSettings((state) => state.model)
+  const [ids, setIds] = useState<string[]>([])
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    setFailed(false)
+    listModels(apiKey ?? '', controller.signal)
+      .then((list) => setIds(sortModels(list)))
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setFailed(true)
+        }
+      })
+    return () => controller.abort()
+  }, [apiKey])
+
+  const current = model || DEPLOY_MODEL || DEFAULT_MODEL
+  const options = [
+    { value: '', label: t('settingsModelDefault') },
+    ...(model && !ids.includes(model) ? [{ value: model, label: model }] : []),
+    ...ids.map((id) => ({ value: id, label: id })),
+  ]
+
+  return (
+    <SettingCell
+      label={t('settingsModel')}
+      description={
+        failed ? t('settingsModelLoadFailed') : t('settingsModelCurrent', { model: current })
+      }
+      status={null}
+      action={
+        <Select
+          ariaLabel={t('settingsModel')}
+          className={styles.modelSelect}
+          value={model}
+          options={options}
+          onChange={setModel}
         />
       }
     />

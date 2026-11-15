@@ -1,10 +1,10 @@
-# chat-demo
+# Blue Big Fat Fish (chat-demo)
 
 English | [简体中文](README.zh-CN.md)
 
 A static chat demo powered by the DeepSeek API. No application backend is required: the browser connects directly to the configured API service.
 
-> **This fork** points the default API at a local gateway (`http://192.168.195.154:3425`) and ships a zero-dependency Node adapter (`server.mjs`) that serves `dist/`, proxies `/api/*`, adds CORS headers, emulates the Files API (images are inlined as base64), and falls back from the LAN address to loopback when the gateway rejects the key. See [README.zh-CN.md](README.zh-CN.md) for the full endpoint mapping table.
+> **This fork** renames the app to "Blue Big Fat Fish" and points the default API at a local magpie gateway (deployed on a NAS: magpie container + nginx same-origin proxy). The zero-dependency Node adapter still ships as `server.mjs` for local development. Previously it pointed at (`http://192.168.195.154:3425`) and ships a zero-dependency Node adapter (`server.mjs`) that serves `dist/`, proxies `/api/*`, adds CORS headers, emulates the Files API (images are inlined as base64), and falls back from the LAN address to loopback when the gateway rejects the key. See [README.zh-CN.md](README.zh-CN.md) for the full endpoint mapping table.
 
 Quick start for this fork:
 
@@ -38,6 +38,16 @@ pnpm build
 ```
 
 The output is written to `dist/`. Deploy it to a static web server or open `dist/index.html` directly. Opening the file directly requires browser support for storage on `file://` pages and an API service that permits their cross-origin requests.
+
+## Model selection
+
+The model is no longer hard-coded. Settings → General → Model fetches `GET /v1/models` from the
+gateway and lists every available id (`group/*` and `auto/*` first, the rest alphabetically).
+The choice applies immediately and is stored in localStorage.
+
+Precedence: the selected model → `window.__CHAT_MODEL__` in `config.js` (deployment default) →
+built-in `deepseek-flash`. Pick "Default (follow deployment config)" to fall back to the last two.
+If the gateway is unreachable only the default entry is shown, with a hint to check the connection.
 
 ## Features
 

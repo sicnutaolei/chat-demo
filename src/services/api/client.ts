@@ -18,7 +18,7 @@ const runtimeOrigin = (globalThis as { __CHAT_API_ORIGIN__?: unknown }).__CHAT_A
 export const API_ORIGIN = (
   typeof runtimeOrigin === 'string' && runtimeOrigin.trim() ? runtimeOrigin.trim() : __API_ORIGIN__
 ).replace(/\/$/, '')
-/** 运行时强制覆盖模型 id（config.js 的 window.__CHAT_MODEL__），留空则用界面默认模型 */
+/** config.js 里 __CHAT_MODEL__ 指定的部署默认模型（生效优先级见 services/model.ts） */
 const runtimeModel = (globalThis as { __CHAT_MODEL__?: unknown }).__CHAT_MODEL__
 export const MODEL_OVERRIDE =
   typeof runtimeModel === 'string' && runtimeModel.trim() ? runtimeModel.trim() : ''
@@ -165,12 +165,7 @@ export async function* streamMessage(
       'Content-Type': 'application/json',
       Accept: 'text/event-stream',
     },
-    // __CHAT_MODEL__ 有值时强制覆盖，便于同一份构建对接不同网关的模型命名
-    body: JSON.stringify({
-      ...body,
-      ...(MODEL_OVERRIDE ? { model: MODEL_OVERRIDE } : {}),
-      stream: true,
-    }),
+    body: JSON.stringify({ ...body, stream: true }),
     signal,
   })
   const contentType = response.headers.get('Content-Type') ?? ''
@@ -203,4 +198,23 @@ export async function* streamMessage(
   }
   // 服务端没有提供错误内容时保持为空，不推测断流原因。
   throw new ApiError('interrupted', '')
+}
+
+/** GET /models：取网关上的模型 id 列表（OpenAI 兼容格式），用于设置里的模型选择 */
+export const listModels = async (apiKey: string, signal?: AbortSignal): Promise<string[]> => {
+  const response = await request(`${API_ORIGIN}/v1/models`, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${apiKey}` },
+    signal,
+  })
+  const body: unknown = await response.json().catch(() => null)
+  const data =
+    typeof body === 'object' && body !== null && Array.isArray((body as { data?: unknown }).data)
+      ? (body as { data: unknown[] }).data
+      : []
+  return data
+    .map((item) =>
+      typeof item === 'object' && item !== null ? (item as { id?: unknown }).id : undefined
+    )
+    .filter((id): id is string => typeof id === 'string' && id.length > 0)
 }

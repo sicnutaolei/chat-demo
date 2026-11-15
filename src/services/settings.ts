@@ -11,6 +11,8 @@ export type ThemePreference = 'light' | 'dark' | 'system'
 type Settings = {
   apiKey: string | null
   locale: Locale
+  /** 当前使用的模型 id；空字符串表示跟随 config.js 的部署默认 */
+  model: string
   themePreference: ThemePreference
   location: UserLocation | null
   ttsVoice: TtsVoice
@@ -22,6 +24,7 @@ type Settings = {
 const KEYS = {
   apiKey: 'chat-demo:api-key',
   locale: 'chat-demo:locale',
+  model: 'chat-demo:model',
   location: 'chat-demo:location',
   themePreference: 'chat-demo:theme-preference',
   ttsVoice: 'chat-demo:tts-voice',
@@ -90,6 +93,7 @@ const initialTtsVoice = (): TtsVoice => (read(KEYS.ttsVoice) === 'tide' ? 'tide'
 export const useSettings = create<Settings>(() => ({
   apiKey: read(KEYS.apiKey),
   locale: initialLocale(),
+  model: read(KEYS.model) ?? '',
   location: initialLocation(),
   themePreference: initialThemePreference(),
   ttsVoice: initialTtsVoice(),
@@ -137,4 +141,10 @@ export const setSearch = (search: boolean) => {
 export const setSiderCollapsed = (siderCollapsed: boolean) => {
   write(KEYS.siderCollapsed, String(siderCollapsed))
   useSettings.setState({ siderCollapsed })
+}
+
+/** 选择模型：空字符串表示跟随 config.js 的部署默认 */
+export const setModel = (model: string) => {
+  write(KEYS.model, model || null)
+  useSettings.setState({ model })
 }

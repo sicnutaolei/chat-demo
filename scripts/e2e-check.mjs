@@ -138,7 +138,7 @@ for (let i = 0; i < 80; i++) {
   const text = await evaluate('document.body.innerText')
   stable = text === previous ? stable + 1 : 0
   previous = text
-  if (i >= 5 && stable >= 2) {
+  if (i >= 13 && stable >= 3) {
     break
   }
 }

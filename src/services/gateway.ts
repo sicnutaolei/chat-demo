@@ -7,8 +7,15 @@ import { setApiKey, useSettings } from './settings.js'
  * 地址跟随 API_ORIGIN，因此部署到 NAS 静态站、跨域连回本机代理时同样可用；
  * 没有适配服务器（如直接双击 dist/index.html）时请求失败，静默忽略。
  */
+/** 运行时占位 Key（config.js 的 window.__CHAT_KEY__）：密钥由反代在服务端注入时用它进入界面 */
+const runtimeKey = (globalThis as { __CHAT_KEY__?: unknown }).__CHAT_KEY__
+
 export const bootstrapGatewayConfig = async (): Promise<void> => {
   if (useSettings.getState().apiKey) {
+    return
+  }
+  if (typeof runtimeKey === 'string' && runtimeKey.trim()) {
+    setApiKey(runtimeKey.trim())
     return
   }
   try {

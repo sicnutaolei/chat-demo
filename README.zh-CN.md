@@ -100,39 +100,112 @@ npm run serve        # 或 node server.mjs，或双击 start.cmd
 
 ### 运行时配置（换后端不用重新构建）
 
-`dist/config.js` 会在应用启动前执行：
+`dist/config.js` 会在应用启动前执行（改完刷新页面即生效，不需要重新构建）：
 
 ```js
 window.__CHAT_API_ORIGIN__ = ''          // 留空：用构建期默认的 /api（同源代理）
 // window.__CHAT_API_ORIGIN__ = 'http://192.168.2.216:8090/api'   // 跨域直连某台适配服务器
 ```
 
-## 部署到 NAS 静态站
+## 部署到 NAS 静态站（magpie 跑在 NAS 上）
 
-页面是纯静态的，但**不能只上传 dist**：magpie 网关不发 CORS 头、且只信任回环连接，所以静态页必须跨域调用本机运行的 `server.mjs`。
+目标架构：**页面、网关、模型供应商全部在 NAS 上，不依赖任何 Windows 进程。**
+
+```
+浏览器 ──同源──> nginx-static-host:8888 (/chat-demo/api/)
+                        │  注入网关密钥、去掉 Origin、关闭缓冲
+                        ▼
+                 magpie 容器 :3425  (ghcr.io/yetone/magpie)
+                        │
+                        ▼
+              readon / tokenjuice-ai / nvidia … 等 provider
+```
+
+### 1. 在 NAS 上跑 magpie
+
+`/vol1/1000/docker/magpie/compose.yaml`（要点：网关发布到局域网、网页界面只绑回环、加入 nginx 的网络）：
+
+```yaml
+services:
+  magpie:
+    image: ghcr.io/yetone/magpie:latest
+    container_name: magpie
+    restart: unless-stopped
+    ports:
+      - "3425:3425"            # 网关：局域网客户端调用（需网关密钥）
+      - "127.0.0.1:3430:3430"  # Web 管理界面：仅回环，用 SSH 隧道打开
+    environment:
+      MAGPIE_PUBLIC_URL: http://<nas-ip>:3425
+      MAGPIE_WEB_KEY: <16 位以上的固定 key>
+      MAGPIE_ALLOW_IPS: 192.168.0.0/16,10.0.0.0/8,172.16.0.0/12
+    volumes:
+      - ./config:/config
+    command: [web, --addr, 0.0.0.0:3430, --no-open]
+    networks: [default, nginx_default]
+
+networks:
+  nginx_default:
+    external: true
+```
+
+bind mount 的目录要交给容器用户（uid 65532），没有 sudo 时可以用一次性容器：
 
 ```sh
-npm run build                                   # 产物在 dist/
-# 上传 dist/ 到 NAS，例如 /vol1/1000/static_web/chat-demo/
+docker run --rm -u 0 --entrypoint /bin/sh \
+  -v /vol1/1000/docker/magpie/config:/c \
+  ghcr.io/yetone/magpie:latest -c "chown -R 65532:65532 /c"
+docker compose up -d
 ```
 
-上传后改**部署目录里的 `config.js`**（运行时配置，无需重新构建）：
+Web 管理界面（加供应商、看用量）：`ssh -L 3430:127.0.0.1:3430 you@nas`，再打开 `http://127.0.0.1:3430/?k=<MAGPIE_WEB_KEY>`。
+
+网关密钥给客户端用：`docker exec magpie magpie gateway-key add "Laptop"`（非 TTY 下会打码，
+用 `... gateway-key rotate <id> --key -` 从 stdin 设定自己指定的密钥最省事）。
+
+### 2. nginx 加一段同源代理
+
+`/vol1/1000/Docker/nginx/conf/default.conf`：
+
+```nginx
+location /chat-demo/api/ {
+    proxy_pass http://magpie:3425/;
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+    proxy_set_header Authorization "Bearer <网关密钥>";
+    proxy_set_header x-api-key "<网关密钥>";
+    # magpie 把带 Origin 的请求当浏览器页面、要求登记白名单；
+    # 密钥已由 nginx 注入且页面同源，去掉 Origin 按普通 API 客户端对待
+    proxy_set_header Origin "";
+    proxy_set_header Referer "";
+    proxy_buffering off;      # SSE 必须
+    proxy_cache off;
+    proxy_request_buffering off;
+    chunked_transfer_encoding on;
+    gzip off;
+    proxy_read_timeout 600s;
+    client_max_body_size 32m;
+}
+```
+
+### 3. 页面侧的 config.js
 
 ```js
-window.__CHAT_API_ORIGIN__ = 'http://192.168.2.216:8090/api'   // Windows 上 server.mjs 的地址
+window.__CHAT_API_ORIGIN__ = '/chat-demo/api'                 // 同源，浏览器无跨域
+window.__CHAT_MODEL__ = 'readon/DeepSeek-V4.1-Flash'          // 网关上的 provider/model id
+window.__CHAT_KEY__ = 'injected-by-nginx'                     // 占位，真实密钥在 nginx 里
 ```
 
-前提条件：
+### 这套架构下的功能边界
 
-| 条件 | 说明 |
+| 功能 | 状态 |
 | --- | --- |
-| Windows 上 `node server.mjs` 在运行 | 它负责补 CORS、把请求以回环身份转给网关、附件内联 |
-| 防火墙放行 8090 | NAS 已能访问 `http://192.168.2.216:8090/api/_status` |
-| `config.js` 里的地址浏览器能访问到 | 用 Windows 的局域网 IP，不要写 127.0.0.1 |
+| 流式对话、深度思考、联网搜索、链接阅读、来源引用 | ✅ |
+| 图片附件 | ❌ magpie 没有 Files API（`/v1/files` 返回 404），上传时会提示 |
+| 语音输入 / 朗读 | ❌ 网关无 ASR/TTS 模型 |
+| 多会话、消息分支、历史导入导出、Markdown / KaTeX / Mermaid | ✅ 纯前端 |
 
-本仓库作者的部署实例：`/vol1/1000/static_web/chat-demo/` → `http://krypton:8888/chat-demo/`，并在 `sites_config.json` 里登记为「DeepSeek 对话 Demo」（NAS 导航生成器会自动收录新目录）。
-
-> 如果以后 magpie 为局域网访问启用了 gateway key（不再只信任回环），可以去掉这层依赖，把 `config.js` 直接指向网关 `http://192.168.2.216:3425`（此时需网关自身返回 CORS 头）。
+> 需要图片附件时，把 `__CHAT_API_ORIGIN__` 指回本机的 `server.mjs`（它自带 Files 兼容层），
+> 代价是那台机器要开着。
 
 ## 数据
 

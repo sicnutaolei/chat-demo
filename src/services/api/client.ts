@@ -18,6 +18,11 @@ const runtimeOrigin = (globalThis as { __CHAT_API_ORIGIN__?: unknown }).__CHAT_A
 export const API_ORIGIN = (
   typeof runtimeOrigin === 'string' && runtimeOrigin.trim() ? runtimeOrigin.trim() : __API_ORIGIN__
 ).replace(/\/$/, '')
+/** 运行时强制覆盖模型 id（config.js 的 window.__CHAT_MODEL__），留空则用界面默认模型 */
+const runtimeModel = (globalThis as { __CHAT_MODEL__?: unknown }).__CHAT_MODEL__
+export const MODEL_OVERRIDE =
+  typeof runtimeModel === 'string' && runtimeModel.trim() ? runtimeModel.trim() : ''
+
 /** Anthropic 兼容接口的前缀（本地网关提供 /v1/messages） */
 const ANTHROPIC_BASE_URL = `${API_ORIGIN}/v1`
 /** 引用 Files API 上传的图片、调用 Anthropic 兼容 Files API 时必须携带 */
@@ -160,7 +165,12 @@ export async function* streamMessage(
       'Content-Type': 'application/json',
       Accept: 'text/event-stream',
     },
-    body: JSON.stringify({ ...body, stream: true }),
+    // __CHAT_MODEL__ 有值时强制覆盖，便于同一份构建对接不同网关的模型命名
+    body: JSON.stringify({
+      ...body,
+      ...(MODEL_OVERRIDE ? { model: MODEL_OVERRIDE } : {}),
+      stream: true,
+    }),
     signal,
   })
   const contentType = response.headers.get('Content-Type') ?? ''

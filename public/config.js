@@ -7,3 +7,16 @@
  *     目标必须返回 CORS 头（server.mjs 已带 Access-Control-Allow-Origin: *）
  */
 window.__CHAT_API_ORIGIN__ = ''
+
+/**
+ * __CHAT_MODEL__：强制覆盖请求里的模型 id（留空则用界面默认的 deepseek-flash）。
+ * 网关上的模型 id 是 provider/model 形式，例如 'readon/DeepSeek-V4.1-Flash'、
+ * 'tokenjuice-ai/deepseek-ai/DeepSeek-V4.1-Flash-1017'、路由组 'group/group'。
+ */
+window.__CHAT_MODEL__ = ''
+
+/**
+ * __CHAT_KEY__：占位 Key。密钥由反向代理在服务端注入（如 nginx 的 proxy_set_header）
+ * 时填任意非空字符串即可进入界面，真实密钥不会出现在页面里。
+ */
+window.__CHAT_KEY__ = ''

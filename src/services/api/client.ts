@@ -10,10 +10,14 @@ import type {
 } from './types.js'
 
 /**
- * 构建期 API 地址，默认 `/api`：由同目录的 server.mjs 反向代理到本地网关
- * （静态托管 + 跨域头 + Files API 兼容层）。改成完整地址可直连支持跨域的服务。
+ * API 地址：优先读运行时配置 `dist/config.js` 里的 `window.__CHAT_API_ORIGIN__`，
+ * 没有则用构建期注入的 `__API_ORIGIN__`（默认 `/api`，由 server.mjs 同源代理）。
+ * 运行时配置让同一份静态产物可以部署到任意位置，只改 config.js 就能换后端。
  */
-export const API_ORIGIN = __API_ORIGIN__
+const runtimeOrigin = (globalThis as { __CHAT_API_ORIGIN__?: unknown }).__CHAT_API_ORIGIN__
+export const API_ORIGIN = (
+  typeof runtimeOrigin === 'string' && runtimeOrigin.trim() ? runtimeOrigin.trim() : __API_ORIGIN__
+).replace(/\/$/, '')
 /** Anthropic 兼容接口的前缀（本地网关提供 /v1/messages） */
 const ANTHROPIC_BASE_URL = `${API_ORIGIN}/v1`
 /** 引用 Files API 上传的图片、调用 Anthropic 兼容 Files API 时必须携带 */
@@ -86,7 +90,7 @@ export const request = async (url: string, init: RequestInit): Promise<Response>
 }
 
 const anthropicHeaders = (apiKey: string, beta: boolean): Record<string, string> => ({
-  // DeepSeek 兼容接口的鉴权方式，也可使用 Authorization: Bearer。
+  // DeepSeek 兼容接口的鉴权方式，也可使用 Authorization: Bearer
   'x-api-key': apiKey,
   // Files API 和通过 file_id 引用图片时必传；纯文本聊天无需携带。
   ...(beta ? { 'anthropic-beta': FILES_BETA } : {}),

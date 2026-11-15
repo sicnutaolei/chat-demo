@@ -69,10 +69,12 @@ npm run serve        # 或 node server.mjs，或双击 start.cmd
 | `port` | 本地服务端口，默认 `8090` |
 | `targets` | 上游地址数组，按顺序尝试；遇到网关密钥类 401 自动切换并记住 |
 | `apiKey` | 首次打开自动写入浏览器设置（localStorage 已有 Key 时不覆盖），留空则手动在设置里填 |
-| `model` | 强制覆盖请求模型；留空则用界面默认的 `deepseek-flash`（网关同样支持 `deepseek-v4-pro`） |
+| `model` | 强制覆盖请求模型；留空则用界面默认的 `deepseek-flash` |
 | `filesDir` | 附件落盘目录，默认 `.gateway-files/` |
 
 也可用环境变量覆盖：`PORT`、`API_TARGETS`（逗号分隔）。
+
+> **模型说明**：`deepseek-flash` 依赖 magpie 里的 `api.deepseek.com` provider（原生支持联网搜索、自动标题等扩展）。该 provider 在 magpie 里被关闭时会报 `api.deepseek.com is switched off in Magpie`，此时可把 `model` 设为备用 id，例如 `readon/DeepSeek-V4.1-Flash`（已验证兼容全部扩展字段，但自动标题会退化为「新对话」）。重新开启 provider 后把 `model` 清空即可恢复。
 
 ### 接口映射
 
@@ -83,6 +85,7 @@ npm run serve        # 或 node server.mjs，或双击 start.cmd
 | `POST /api/v1/files` | 本地实现 | 仅图片（png/jpeg/gif/webp），落盘并返回 Anthropic 风格 `FileObject` |
 | `DELETE /api/v1/files/:id` | 本地实现 | 删除附件原件 |
 | `POST /api/v1/tools/asr`、`/tts` | — | 返回 501，界面提示语音不可用 |
+| `GET /api/_config` | — | 返回 `apiKey` 等运行时配置，供前端首帧预填 |
 | `GET /api/_status` | — | 查看当前上游地址、可达性、附件数量（排障用） |
 
 ### 功能可用性
@@ -95,15 +98,41 @@ npm run serve        # 或 node server.mjs，或双击 start.cmd
 | 语音输入、回复朗读 | ❌ 网关无 ASR/TTS 模型 |
 | 多会话、消息分支、历史导入导出、Markdown / KaTeX / Mermaid | ✅ 纯前端能力，与网关无关 |
 
-### 直连模式（可选）
+### 运行时配置（换后端不用重新构建）
 
-如果以后换到支持跨域的网关，可以绕过代理直接连：
+`dist/config.js` 会在应用启动前执行：
 
-```sh
-npx rspack build -c rspack.config.ts --define __API_ORIGIN__:'"http://host:port"'
+```js
+window.__CHAT_API_ORIGIN__ = ''          // 留空：用构建期默认的 /api（同源代理）
+// window.__CHAT_API_ORIGIN__ = 'http://192.168.2.216:8090/api'   // 跨域直连某台适配服务器
 ```
 
-或修改 `rspack.config.ts` 里 `createConfig({ apiOrigin })` 的默认值后重新构建。
+## 部署到 NAS 静态站
+
+页面是纯静态的，但**不能只上传 dist**：magpie 网关不发 CORS 头、且只信任回环连接，所以静态页必须跨域调用本机运行的 `server.mjs`。
+
+```sh
+npm run build                                   # 产物在 dist/
+# 上传 dist/ 到 NAS，例如 /vol1/1000/static_web/chat-demo/
+```
+
+上传后改**部署目录里的 `config.js`**（运行时配置，无需重新构建）：
+
+```js
+window.__CHAT_API_ORIGIN__ = 'http://192.168.2.216:8090/api'   // Windows 上 server.mjs 的地址
+```
+
+前提条件：
+
+| 条件 | 说明 |
+| --- | --- |
+| Windows 上 `node server.mjs` 在运行 | 它负责补 CORS、把请求以回环身份转给网关、附件内联 |
+| 防火墙放行 8090 | NAS 已能访问 `http://192.168.2.216:8090/api/_status` |
+| `config.js` 里的地址浏览器能访问到 | 用 Windows 的局域网 IP，不要写 127.0.0.1 |
+
+本仓库作者的部署实例：`/vol1/1000/static_web/chat-demo/` → `http://krypton:8888/chat-demo/`，并在 `sites_config.json` 里登记为「DeepSeek 对话 Demo」（NAS 导航生成器会自动收录新目录）。
+
+> 如果以后 magpie 为局域网访问启用了 gateway key（不再只信任回环），可以去掉这层依赖，把 `config.js` 直接指向网关 `http://192.168.2.216:3425`（此时需网关自身返回 CORS 头）。
 
 ## 数据
 
@@ -120,6 +149,7 @@ API Key 和设置保存在浏览器 localStorage，会话及附件原件保存�
 | `pnpm dev`    | 启动开发服务器      |
 | `pnpm build`  | 构建到 `dist/`      |
 | `pnpm serve`  | 启动本地网关服务器  |
+| `pnpm e2e`    | 无头浏览器端到端自检 |
 | `pnpm type`   | TypeScript 类型检查 |
 | `pnpm lint`   | oxlint 检查         |
 | `pnpm format` | oxfmt 格式化        |
@@ -139,7 +169,9 @@ src/
     markdown/          Markdown 解析、代码高亮与图表
     speech/            录音与朗读
   utils/               通用工具
+public/config.js       运行时配置模板（构建时复制为 dist/config.js）
 server.mjs             本地网关适配服务器（静态托管 + /api 代理 + Files 兼容层）
+scripts/e2e-check.mjs  CDP 无头浏览器自检脚本
 ```
 
 ## 许可证

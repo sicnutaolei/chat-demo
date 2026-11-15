@@ -84,7 +84,11 @@ export const createConfig = ({
     }),
     new rspack.DefinePlugin({ __API_ORIGIN__: JSON.stringify(apiOrigin) }),
     new rspack.CopyRspackPlugin({
-      patterns: [{ from: path.resolve(root, 'LICENSE'), to: 'LICENSE', toType: 'file' }],
+      patterns: [
+        { from: path.resolve(root, 'LICENSE'), to: 'LICENSE', toType: 'file' },
+        // 运行时配置：部署后直接改 dist/config.js 即可切换 API 地址
+        { from: path.resolve(root, 'public/config.js'), to: 'config.js', toType: 'file' },
+      ],
     }),
   ],
   performance: { hints: false },
